@@ -55,6 +55,9 @@ void Error_Handler(void);
 /* USER CODE BEGIN EFP */
 void SystemClockConfig(void);
 void MxGpioInit(void);
+void MxAdcInit(void);
+void MxDmaInit(void);
+void MxUartInit(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
