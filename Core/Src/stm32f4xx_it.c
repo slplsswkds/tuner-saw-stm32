@@ -53,7 +53,7 @@ void goStandby()
     HAL_PWR_EnterSTANDBYMode();
 }
 
-inline int standbyBtnIsPressed()
+int standbyBtnIsPressed()
 {
     return HAL_GPIO_ReadPin(STANDBY_BTN_GPIO_Port, STANDBY_BTN_Pin) == GPIO_PIN_SET;
 }

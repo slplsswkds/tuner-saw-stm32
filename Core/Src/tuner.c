@@ -1,6 +1,6 @@
 #include "tuner.h"
 
-void blinkTimesWithDelay(int times, int delay)
+void blinkTimesWithDelay(const int times, const int delay)
 {
     for (int i = 0; i < times * 2; i++)
     {
@@ -9,7 +9,7 @@ void blinkTimesWithDelay(int times, int delay)
     }
 }
 
-inline bool isWakeupFromStandby()
+bool isWakeupFromStandby()
 {
     return __HAL_PWR_GET_FLAG(PWR_FLAG_WU);
 }
