@@ -29,14 +29,13 @@ void sendUartStr(const uint8_t* str);
 
 void startAdcDataRecording(uint32_t* pData);
 void waitForAdcData();
-void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutput);
-void calculateStringTuningInfo();
+void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag);
+void calculateStringTuningInfo(const float32_t* pFftMag, uint16_t size);
 void showInfo();
 void convert_uint16_to_float32(const uint16_t* src, float* dst, size_t len);
 
 const uint32_t AUDIO_DATA_LEN = 1024;
 bool AUDIO_DATA_IS_ACTUAL = false;
-
 
 #ifdef UART_LOG
 uint8_t UART_TX_DATA[128];
@@ -49,7 +48,9 @@ int main(void)
     MxGpioInit();
     MxAdcInit();
     MxDmaInit();
+#ifdef UART_LOG
     MxUartInit();
+#endif
 
     HAL_Delay(100);
 
@@ -64,7 +65,7 @@ int main(void)
     }
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
-    float32_t pFftOutput[AUDIO_DATA_LEN];
+    float32_t pFftOutputMag[AUDIO_DATA_LEN];
 
     arm_rfft_fast_instance_f32 fftInstance;
     arm_rfft_fast_init_f32(&fftInstance, AUDIO_DATA_LEN);
@@ -73,8 +74,8 @@ int main(void)
     {
         startAdcDataRecording((uint32_t*)pAudioData);
         waitForAdcData();
-        fft(&fftInstance, pAudioData, pFftOutput);
-        calculateStringTuningInfo();
+        fft(&fftInstance, pAudioData, pFftOutputMag);
+        calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
         showInfo();
     }
 }
@@ -117,7 +118,7 @@ void waitForAdcData()
 #endif
 }
 
-void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutput)
+void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag)
 {
 #ifdef UART_LOG
     if (AUDIO_DATA_IS_ACTUAL == true)
@@ -134,13 +135,32 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
 #endif
 
     float32_t pFftInput[AUDIO_DATA_LEN];
+    float32_t pFftOutput[AUDIO_DATA_LEN];
+
     convert_uint16_to_float32(pAudioData, pFftInput, AUDIO_DATA_LEN);
     arm_rfft_fast_f32(pFftInstance, pFftInput, pFftOutput, 0);
-    // arm_cmplx_mag_f32(fftOutput, fftOutputMag, AUDIO_DATA_LEN / 2);
+    arm_cmplx_mag_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
 }
 
-void calculateStringTuningInfo()
+void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
 {
+    float32_t maxMag = 0.0f;
+    uint16_t maxMagIdx = 0;
+    for (uint16_t i = 0; i < size; i++)
+    {
+        if (pFftMag[i] > maxMag)
+        {
+            maxMag = pFftMag[i];
+            maxMagIdx = i;
+        }
+    }
+    const float sampingFreq = 8130; // Hz
+    const float32_t maxMagFreq = (float32_t)maxMagIdx * sampingFreq / (float32_t)size;
+
+#ifdef UART_LOG
+    snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "Idx: %u \t\tMax Frequency: %f\n\r", maxMagIdx, maxMagFreq);
+    sendUartStr(UART_TX_DATA);
+#endif
 }
 
 void showInfo()
