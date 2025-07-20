@@ -86,3 +86,5 @@ add_custom_target(flash
 )
 
 set(CMAKE_CXX_COMPILER ${ARM_TOOLCHAIN}/bin/arm-none-eabi-g++)
+
+add_compile_definitions(UART_LOG)

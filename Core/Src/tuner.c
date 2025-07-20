@@ -23,7 +23,10 @@ extern UART_HandleTypeDef huart1;
 
 volatile bool UART_TX_BUSY = false;
 
+#ifdef UART_LOG
 void sendUartStr(const uint8_t* str);
+#endif
+
 void startAdcDataRecording(uint32_t* pData);
 void waitForAdcData();
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutput);
@@ -34,7 +37,10 @@ void convert_uint16_to_float32(const uint16_t* src, float* dst, size_t len);
 const uint32_t AUDIO_DATA_LEN = 1024;
 bool AUDIO_DATA_IS_ACTUAL = false;
 
+
+#ifdef UART_LOG
 uint8_t UART_TX_DATA[128];
+#endif
 
 int main(void)
 {
@@ -104,12 +110,16 @@ void waitForAdcData()
     }
     HAL_ResumeTick();
 
+
+#ifdef UART_LOG
     snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "Audio data is actual %d\n\r", AUDIO_DATA_IS_ACTUAL);
     sendUartStr(UART_TX_DATA);
+#endif
 }
 
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutput)
 {
+#ifdef UART_LOG
     if (AUDIO_DATA_IS_ACTUAL == true)
     {
         snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "INFO: Audio data is actual. Processing fft...\n\r");
@@ -121,6 +131,7 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
         sendUartStr(UART_TX_DATA);
         return;
     }
+#endif
 
     float32_t pFftInput[AUDIO_DATA_LEN];
     convert_uint16_to_float32(pAudioData, pFftInput, AUDIO_DATA_LEN);
@@ -134,10 +145,13 @@ void calculateStringTuningInfo()
 
 void showInfo()
 {
+#ifdef UART_LOG
     snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "Tuning info: empty\n\r");
     sendUartStr(UART_TX_DATA);
+#endif
 }
 
+#ifdef UART_LOG
 void sendUartStr(const uint8_t* str)
 {
     static uint8_t internalUartTxData[sizeof(UART_TX_DATA)];
@@ -146,6 +160,7 @@ void sendUartStr(const uint8_t* str)
     UART_TX_BUSY = true;
     HAL_UART_Transmit_DMA(&huart1, internalUartTxData, strlen((char*)str));
 }
+#endif
 
 void convert_uint16_to_float32(const uint16_t* src, float* dst, const size_t len)
 {
