@@ -12,7 +12,7 @@ void blinkTimesWithDelay(const int times, const int delay)
     }
 }
 
-bool isWakeupFromStandby()
+bool isWakedUpFromStandby()
 {
     return __HAL_PWR_GET_FLAG(PWR_FLAG_WU);
 }
@@ -39,7 +39,7 @@ int main(void)
 
     HAL_Delay(100);
 
-    if (isWakeupFromStandby())
+    if (isWakedUpFromStandby())
     {
         __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
         blinkTimesWithDelay(2, 500);
