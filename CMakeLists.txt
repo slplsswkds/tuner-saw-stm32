@@ -36,7 +36,10 @@ enable_language(C ASM)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/tuner.c
-        Core/Inc/tuner.h)
+        Core/Inc/tuner.h
+        Core/Src/uart_log.c
+        Core/Inc/uart_log.h
+)
 
 # Генерація .bin після збірки ELF
 add_custom_command(TARGET tuner-code POST_BUILD

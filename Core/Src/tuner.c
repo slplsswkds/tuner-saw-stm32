@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "arm_math.h"
+#include "uart_log.h"
 
 void blinkTimesWithDelay(const int times, const int delay)
 {
@@ -21,13 +22,11 @@ bool isWakedUpFromStandby()
 extern ADC_HandleTypeDef hadc1;
 extern UART_HandleTypeDef huart1;
 
-volatile bool UART_TX_BUSY = false;
-
 #ifdef UART_LOG
 void sendUartStr(const uint8_t* str);
 #endif
 
-void startAdcDataRecording(uint32_t* pData);
+void startAdcDataRecording(uint16_t* pData, uint32_t length);
 void waitForAdcData();
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag);
 void calculateStringTuningInfo(const float32_t* pFftMag, uint16_t size);
@@ -37,10 +36,6 @@ void convert_uint16_to_float32(const uint16_t* src, float* dst, size_t len);
 const uint32_t AUDIO_DATA_LEN = 1024;
 bool AUDIO_DATA_IS_ACTUAL = false;
 
-#ifdef UART_LOG
-uint8_t UART_TX_DATA[128];
-#endif
-
 int main(void)
 {
     HAL_Init();
@@ -48,9 +43,11 @@ int main(void)
     MxGpioInit();
     MxAdcInit();
     MxDmaInit();
-#ifdef UART_LOG
+
+    #ifdef UART_LOG
     MxUartInit();
-#endif
+    uartLogInit(&huart1);
+    #endif
 
     HAL_Delay(100);
 
@@ -72,19 +69,21 @@ int main(void)
 
     while (1)
     {
-        startAdcDataRecording((uint32_t*)pAudioData);
+        startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         waitForAdcData();
+
+        #ifdef UART_LOG
+        for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
+        {
+            uartPrintf("%u ", pAudioData[i]);
+        }
+        uartPrintf("\n\r");
+        #endif
+
         fft(&fftInstance, pAudioData, pFftOutputMag);
         calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
         showInfo();
-    }
-}
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
-{
-    if (huart->Instance == USART1)
-    {
-        UART_TX_BUSY = false;
+        HAL_Delay(500);
     }
 }
 
@@ -96,10 +95,10 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     }
 }
 
-void startAdcDataRecording(uint32_t* pData)
+void startAdcDataRecording(uint16_t* pData, const uint32_t length)
 {
     AUDIO_DATA_IS_ACTUAL = false;
-    HAL_ADC_Start_DMA(&hadc1, pData, 1024);
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)pData, length);
 }
 
 void waitForAdcData()
@@ -111,29 +110,14 @@ void waitForAdcData()
     }
     HAL_ResumeTick();
 
-
-#ifdef UART_LOG
-    snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "Audio data is actual %d\n\r", AUDIO_DATA_IS_ACTUAL);
-    sendUartStr(UART_TX_DATA);
-#endif
+    #ifdef UART_LOG
+    uartPrintf("Audio data is%s actual\n\r", AUDIO_DATA_IS_ACTUAL ? "" : " not");
+    #endif
 }
 
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag)
 {
-#ifdef UART_LOG
-    if (AUDIO_DATA_IS_ACTUAL == true)
-    {
-        snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "INFO: Audio data is actual. Processing fft...\n\r");
-        sendUartStr(UART_TX_DATA);
-    }
-    else
-    {
-        snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "ERROR: Audio data is not actual! Returning...\n\r");
-        sendUartStr(UART_TX_DATA);
-        return;
-    }
-#endif
-
+    AUDIO_DATA_IS_ACTUAL = false;
     float32_t pFftInput[AUDIO_DATA_LEN];
     float32_t pFftOutput[AUDIO_DATA_LEN];
 
@@ -157,36 +141,35 @@ void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
     const float sampingFreq = 8130; // Hz
     const float32_t maxMagFreq = (float32_t)maxMagIdx * sampingFreq / (float32_t)size;
 
-#ifdef UART_LOG
-    snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "Idx: %u \t\tMax Frequency: %f\n\r", maxMagIdx, maxMagFreq);
-    sendUartStr(UART_TX_DATA);
-#endif
+    #ifdef UART_LOG
+    uartPrintf("Idx: %u \t\tMax Frequency: %f\n\r", maxMagIdx, maxMagFreq);
+    #endif
 }
 
 void showInfo()
 {
-#ifdef UART_LOG
-    snprintf((char*)UART_TX_DATA, sizeof(UART_TX_DATA), "Tuning info: empty\n\r");
-    sendUartStr(UART_TX_DATA);
-#endif
+    #ifdef UART_LOG
+    uartPrintf("Tuning info: empty\n\r");
+    #endif
 }
-
-#ifdef UART_LOG
-void sendUartStr(const uint8_t* str)
-{
-    static uint8_t internalUartTxData[sizeof(UART_TX_DATA)];
-    while (UART_TX_BUSY) { __NOP(); }
-    memccpy(internalUartTxData, str, '\0', sizeof(internalUartTxData));
-    UART_TX_BUSY = true;
-    HAL_UART_Transmit_DMA(&huart1, internalUartTxData, strlen((char*)str));
-}
-#endif
 
 void convert_uint16_to_float32(const uint16_t* src, float* dst, const size_t len)
 {
-    const float scale = 1.0f / 2048.0f; // normalization [-1.0..+1.0]
+    const uint16_t ADC_BITS = 12;
+    const uint16_t ADC_MAX = (1 << ADC_BITS) - 1; // 4095
+    const float ADC_CENTER = ADC_MAX / 2.0f; // 2047.5
+    const float ADC_SCALE = ADC_CENTER; // 2047.5
+
     for (size_t i = 0; i < len; i++)
     {
-        dst[i] = ((float)src[i] - 2048.0f) * scale;
+        const uint16_t adc_value = src[i] & ADC_MAX;
+        dst[i] = ((float)adc_value - ADC_CENTER) / ADC_SCALE;
+
+        #ifdef UART_LOG
+        if (i % 64 == 0)
+        {
+            uartPrintf("src[%u] = %u;\tdst = %.4f\r\n", i, adc_value, dst[i]);
+        }
+        #endif
     }
 }
