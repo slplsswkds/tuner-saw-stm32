@@ -93,3 +93,5 @@ set(CMAKE_CXX_COMPILER ${ARM_TOOLCHAIN}/bin/arm-none-eabi-g++)
 add_compile_definitions(UART_LOG)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")

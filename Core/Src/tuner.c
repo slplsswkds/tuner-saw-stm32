@@ -34,17 +34,17 @@ void showInfo();
 void convert_uint16_to_float32(const uint16_t* src, float* dst, size_t len);
 
 const uint32_t AUDIO_DATA_LEN = 1024;
-bool AUDIO_DATA_IS_ACTUAL = false;
+volatile bool AUDIO_DATA_IS_ACTUAL = false;
 
 int main(void)
 {
     HAL_Init();
     SystemClockConfig();
+    MxDmaInit();
     MxGpioInit();
     MxAdcInit();
-    MxDmaInit();
 
-    #ifdef UART_LOG
+#ifdef UART_LOG
     MxUartInit();
     uartLogInit(&huart1);
     #endif
@@ -69,6 +69,8 @@ int main(void)
 
     while (1)
     {
+        memset(pAudioData, 0, sizeof(pAudioData));
+
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         waitForAdcData();
 
@@ -80,9 +82,9 @@ int main(void)
         uartPrintf("\n\r");
         #endif
 
-        fft(&fftInstance, pAudioData, pFftOutputMag);
-        calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
-        showInfo();
+        // fft(&fftInstance, pAudioData, pFftOutputMag);
+        // calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
+        // showInfo();
         HAL_Delay(500);
     }
 }
@@ -99,6 +101,13 @@ void startAdcDataRecording(uint16_t* pData, const uint32_t length)
 {
     AUDIO_DATA_IS_ACTUAL = false;
     HAL_ADC_Start_DMA(&hadc1, (uint32_t*)pData, length);
+}
+
+void HAL_ADC_ErrorCallback(ADC_HandleTypeDef* hadc)
+{
+    #ifdef UART_LOG
+    uartPrintf("ADC Error, code: 0x%X\r\n", hadc->ErrorCode);
+    #endif
 }
 
 void waitForAdcData()

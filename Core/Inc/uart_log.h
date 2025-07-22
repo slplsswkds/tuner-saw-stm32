@@ -12,4 +12,3 @@ extern volatile bool UART_TX_BUSY;
 void uartLogInit(UART_HandleTypeDef* huart);
 void uartPrintf(const char* fmt, ...);
 void sendUartStr(const uint8_t* str);
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart);
