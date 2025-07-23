@@ -31,9 +31,12 @@ void waitForAdcData();
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag);
 void calculateStringTuningInfo(const float32_t* pFftMag, uint16_t size);
 void showInfo();
-void convert_uint16_to_float32(const uint16_t* src, float* dst, size_t len);
+void normalize(const uint16_t* src, float32_t* dst, size_t len);
+float32_t calculateFreqFromFftIndex(uint16_t size, float32_t sampling_freq, uint16_t idx);
 
-const uint32_t AUDIO_DATA_LEN = 1024;
+const uint32_t AUDIO_DATA_LEN = 2048;
+const float32_t ADC_SAMPLING_FREQ = 8130; // Hz
+const float32_t ADC_SAMPLING_RATE = 1/ADC_SAMPLING_FREQ;
 volatile bool AUDIO_DATA_IS_ACTUAL = false;
 
 int main(void)
@@ -55,10 +58,16 @@ int main(void)
     {
         __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
         blinkTimesWithDelay(2, 500);
+        #ifdef UART_LOG
+        uartPrintf("Waked up from standby\n\r");
+        #endif
     }
     else
     {
         blinkTimesWithDelay(5, 100);
+        #ifdef UART_LOG
+        uartPrintf("First boot\n\r");
+        #endif
     }
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
@@ -74,15 +83,15 @@ int main(void)
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         waitForAdcData();
 
-        #ifdef UART_LOG
-        for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
-        {
-            uartPrintf("%u ", pAudioData[i]);
-        }
-        uartPrintf("\n\r");
-        #endif
+        // #ifdef UART_LOG
+        // for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
+        // {
+        //     uartPrintf("%u ", pAudioData[i]);
+        // }
+        // uartPrintf("\n\r");
+        // #endif
 
-        // fft(&fftInstance, pAudioData, pFftOutputMag);
+        fft(&fftInstance, pAudioData, pFftOutputMag);
         // calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
         // showInfo();
         HAL_Delay(500);
@@ -120,19 +129,62 @@ void waitForAdcData()
     HAL_ResumeTick();
 
     #ifdef UART_LOG
-    uartPrintf("Audio data is%s actual\n\r", AUDIO_DATA_IS_ACTUAL ? "" : " not");
+    uartPrintf("Audio data is%s actual\n\n\r", AUDIO_DATA_IS_ACTUAL ? "" : " not");
     #endif
 }
 
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag)
 {
     AUDIO_DATA_IS_ACTUAL = false;
-    float32_t pFftInput[AUDIO_DATA_LEN];
+    float32_t pAudioDataNormalized[AUDIO_DATA_LEN];
     float32_t pFftOutput[AUDIO_DATA_LEN];
 
-    convert_uint16_to_float32(pAudioData, pFftInput, AUDIO_DATA_LEN);
-    arm_rfft_fast_f32(pFftInstance, pFftInput, pFftOutput, 0);
+    normalize(pAudioData, pAudioDataNormalized, AUDIO_DATA_LEN);
+    arm_rfft_fast_f32(pFftInstance, pAudioDataNormalized, pFftOutput, 0);
+
+    #ifdef UART_LOG
+    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
+    {
+        if (i % (AUDIO_DATA_LEN / 8) == 0)
+        {
+            uartPrintf("pFftOutput[%*u] = % .4f\r\n", 4, i, pFftOutput[i]);
+        }
+    }
+    uartPrintf("\r\n");
+    #endif
+
     arm_cmplx_mag_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
+
+    #ifdef UART_LOG
+    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
+    {
+        if (i % (AUDIO_DATA_LEN / 8) == 0)
+        {
+            const float32_t frequency = calculateFreqFromFftIndex(AUDIO_DATA_LEN, ADC_SAMPLING_FREQ, i);
+            uartPrintf("pFftOutputMag[%*u; %*.*f Hz] = % .4f\r\n",
+                       4, i,
+                       8 - 2, 1, frequency,
+                       pFftOutputMag[i]);
+        }
+    }
+    uartPrintf("\r\n");
+    #endif
+}
+
+float32_t calculateFreqFromFftIndex(const uint16_t size, float32_t sampling_freq, const uint16_t idx)
+{
+    float32_t frequncy = 0.0f;
+    if (idx < size)
+    {
+        frequncy = (float32_t)idx * sampling_freq / (float32_t)size;
+    }
+    else
+    {
+        #ifdef UART_LOG
+        uartPrintf("Error: index is out of range\n\n\r");
+        #endif
+    }
+    return frequncy;
 }
 
 void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
@@ -147,27 +199,26 @@ void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
             maxMagIdx = i;
         }
     }
-    const float sampingFreq = 8130; // Hz
-    const float32_t maxMagFreq = (float32_t)maxMagIdx * sampingFreq / (float32_t)size;
+    const float32_t maxMagFreq = (float32_t)maxMagIdx * ADC_SAMPLING_FREQ / (float32_t)size;
 
     #ifdef UART_LOG
-    uartPrintf("Idx: %u \t\tMax Frequency: %f\n\r", maxMagIdx, maxMagFreq);
+    uartPrintf("Idx: %u \t\tMax Frequency: %f\n\n\r", maxMagIdx, maxMagFreq);
     #endif
 }
 
 void showInfo()
 {
     #ifdef UART_LOG
-    uartPrintf("Tuning info: empty\n\r");
+    uartPrintf("Tuning info: empty\n\n\r");
     #endif
 }
 
-void convert_uint16_to_float32(const uint16_t* src, float* dst, const size_t len)
+void normalize(const uint16_t* src, float32_t* dst, const size_t len)
 {
     const uint16_t ADC_BITS = 12;
     const uint16_t ADC_MAX = (1 << ADC_BITS) - 1; // 4095
-    const float ADC_CENTER = ADC_MAX / 2.0f; // 2047.5
-    const float ADC_SCALE = ADC_CENTER; // 2047.5
+    const float32_t ADC_CENTER = ADC_MAX / 2.0f; // 2047.5
+    const float32_t ADC_SCALE = ADC_CENTER; // 2047.5
 
     for (size_t i = 0; i < len; i++)
     {
@@ -175,10 +226,13 @@ void convert_uint16_to_float32(const uint16_t* src, float* dst, const size_t len
         dst[i] = ((float)adc_value - ADC_CENTER) / ADC_SCALE;
 
         #ifdef UART_LOG
-        if (i % 64 == 0)
+        if (i % 256 == 0)
         {
-            uartPrintf("src[%u] = %u;\tdst = %.4f\r\n", i, adc_value, dst[i]);
+            uartPrintf("src[%*u] = %u;\tdst = %.4f\r\n", 4, i, adc_value, dst[i]);
         }
         #endif
     }
+    #ifdef UART_LOG
+    uartPrintf("\r\n");
+    #endif
 }
