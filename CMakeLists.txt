@@ -39,6 +39,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/tuner.h
         Core/Src/uart_log.c
         Core/Inc/uart_log.h
+        Core/Src/adc_data.c
+        Core/Inc/adc_data.h
 )
 
 # Генерація .bin після збірки ELF
