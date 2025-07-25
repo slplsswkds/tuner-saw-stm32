@@ -115,7 +115,7 @@ uint16_t ssd1306_GetWidth(void);
 uint16_t ssd1306_GetHeight(void);
 SSD1306_COLOR ssd1306_GetColor(void);
 void ssd1306_SetColor(SSD1306_COLOR color);
-uint8_t ssd1306_Init(void);
+HAL_StatusTypeDef ssd1306_Init(void);
 void ssd1306_Fill();
 void ssd1306_UpdateScreen(void);
 void ssd1306_DrawPixel(uint8_t x, uint8_t y);
@@ -141,5 +141,7 @@ void ssd1306_ResetOrientation(void);
 void ssd1306_FlipScreenVertically(void);
 void ssd1306_MirrorScreen(void);
 void ssd1306_Clear(void);
+
+// void waitForI2cReadiness(void);
 /* CODE END PFP */
 #endif /* SSD1306_H_ */

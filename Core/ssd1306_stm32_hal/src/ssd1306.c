@@ -55,14 +55,15 @@ void ssd1306_SetColor(SSD1306_COLOR color)
 }
 
 //	Initialize the oled screen
-uint8_t ssd1306_Init(void)
+HAL_StatusTypeDef ssd1306_Init(void)
 {
+    const HAL_StatusTypeDef status = HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 5, 1000);
     /* Check if LCD connected to I2C */
-    if (HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 5, 1000) != HAL_OK)
+    if (status != HAL_OK)
     {
         SSD1306.Initialized = 0;
         /* Return false */
-        return 0;
+        return status;
     }
 
     // Wait for the screen to boot
@@ -95,7 +96,7 @@ uint8_t ssd1306_Init(void)
     }
     else if (display_geometry == GEOMETRY_72_40)
     {
-        ssd1306_WriteCommand(0x02); // або інше значення, що стабільно працює
+        ssd1306_WriteCommand(0x12); // або інше значення, що стабільно працює
     }
 
     ssd1306_WriteCommand(SETCONTRAST);
@@ -137,7 +138,7 @@ uint8_t ssd1306_Init(void)
     SSD1306.Initialized = 1;
 
     /* Return OK */
-    return 1;
+    return HAL_OK;
 }
 
 //
@@ -162,8 +163,14 @@ void ssd1306_UpdateScreen(void)
     for (uint8_t i = 0; i < (SSD1306_HEIGHT + 7) / 8; i++)
     {
         ssd1306_WriteCommand(0xB0 + i);
+        #ifdef SSD1306_72X40
+        ssd1306_WriteCommand(0x21); // Set Column Address
+        ssd1306_WriteCommand(28);   // Start at column 28
+        ssd1306_WriteCommand(99);   // End at column 99 (28 + 72 - 1)
+        #else
         ssd1306_WriteCommand(SETLOWCOLUMN);
         ssd1306_WriteCommand(SETHIGHCOLUMN);
+        #endif
         ssd1306_WriteData(&SSD1306_Buffer[SSD1306_WIDTH * i], width());
     }
 }
@@ -659,8 +666,8 @@ char ssd1306_WriteChar(char ch, FontDef Font)
     uint32_t i, b, j;
 
     // Check remaining space on current line
-    if (width() <= (SSD1306.CurrentX + Font.FontWidth) ||
-        height() <= (SSD1306.CurrentY + Font.FontHeight))
+    if (width() < (SSD1306.CurrentX + Font.FontWidth) ||
+        height() < (SSD1306.CurrentY + Font.FontHeight))
     {
         // Not enough space on current line
         return 0;
@@ -766,13 +773,24 @@ void ssd1306_Clear()
     memset(SSD1306_Buffer, 0, SSD1306_BUFFER_SIZE);
 }
 
+static void waitForI2cReadiness(void)
+{
+    HAL_SuspendTick();
+    while (HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY)
+    {
+        HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+    }
+    HAL_ResumeTick();
+}
+
 //
 //  Send a byte to the command register
 //
 static void ssd1306_WriteCommand(uint8_t command)
 {
 #ifdef USE_DMA
-	while(HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY);
+	// while(HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY);
+    waitForI2cReadiness();
 	HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &command, 1);
 #else
     HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &command, 1, 10);
@@ -782,7 +800,8 @@ static void ssd1306_WriteCommand(uint8_t command)
 static void ssd1306_WriteData(uint8_t* data, uint16_t size)
 {
 #ifdef USE_DMA
-	while(HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY);
+	// while(HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY);
+    waitForI2cReadiness();
 	HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, data, size);
 #else
     HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, data, size, 100);

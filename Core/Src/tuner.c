@@ -54,16 +54,38 @@ int main(void)
         #endif
     }
 
+    HAL_StatusTypeDef oledInitStatus;
+    do
+    {
+        oledInitStatus = ssd1306_Init();
+        #ifdef UART_LOG
+        const char* statusStr = NULL;
 
-    ssd1306_Init();
+        switch (oledInitStatus)
+        {
+        case HAL_OK:
+            statusStr = "OK";
+            break;
+        case HAL_ERROR:
+            statusStr = "ERROR";
+            break;
+        case HAL_BUSY:
+            statusStr = "BUSY";
+            break;
+        case HAL_TIMEOUT:
+            statusStr = "TIMEOUT";
+            break;
+        default:
+            statusStr = "UNKNOWN";
+            break;
+        }
+        uartPrintf("OLED init status: %s\n\r", statusStr);
+        #endif
+    }
+    while (oledInitStatus != HAL_OK);
 
     ssd1306_FlipScreenVertically();
-    ssd1306_Clear();
     ssd1306_SetColor(White);
-
-    ssd1306_DrawRect(0, 0, ssd1306_GetWidth(), ssd1306_GetHeight());
-    ssd1306_SetCursor(0, 0);
-    ssd1306_WriteString("ssd1306_text", Font_7x10);
     ssd1306_UpdateScreen();
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
@@ -78,8 +100,8 @@ int main(void)
         waitForAdcData();
         fft(&fftInstance, pAudioData, pFftOutputMag);
         calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
-        // showInfo();
-        // HAL_Delay(500);
+        showInfo();
+        HAL_Delay(500);
         // break;
     }
 }
@@ -159,6 +181,15 @@ void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
 
 void showInfo()
 {
+    static uint32_t counter = 0;
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%lu", counter);
+
+    ssd1306_Clear();
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString(buf, Font_16x26);
+    ssd1306_UpdateScreen();
+    counter++;
     #ifdef UART_LOG
     uartPrintf("Tuning info: empty\n\n\r");
     #endif
@@ -177,10 +208,10 @@ void normalize(const uint16_t* src, float32_t* dst, const size_t len)
         dst[i] = ((float)adc_value - ADC_CENTER) / ADC_SCALE;
 
         #ifdef UART_LOG
-        if (i % 256 == 0)
-        {
-            uartPrintf("src[%*u] = %u;\tdst = %.4f\r\n", 4, i, adc_value, dst[i]);
-        }
+        // if (i % 256 == 0)
+        // {
+        //     uartPrintf("src[%*u] = %u;\tdst = %.4f\r\n", 4, i, adc_value, dst[i]);
+        // }
         #endif
     }
     #ifdef UART_LOG
