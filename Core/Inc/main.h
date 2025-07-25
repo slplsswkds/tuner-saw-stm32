@@ -58,6 +58,7 @@ void MxGpioInit(void);
 void MxAdcInit(void);
 void MxDmaInit(void);
 void MxUartInit(void);
+void MxI2cInit(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

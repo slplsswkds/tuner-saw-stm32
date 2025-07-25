@@ -1,5 +1,7 @@
 #include "tuner.h"
 
+#include "ssd1306.h"
+
 void blinkTimesWithDelay(const int times, const int delay)
 {
     for (int i = 0; i < times * 2; i++)
@@ -28,8 +30,9 @@ int main(void)
     MxDmaInit();
     MxGpioInit();
     MxAdcInit();
+    MxI2cInit();
 
-#ifdef UART_LOG
+    #ifdef UART_LOG
     MxUartInit();
     #endif
 
@@ -50,6 +53,18 @@ int main(void)
         uartPrintf("First boot\n\r");
         #endif
     }
+
+
+    ssd1306_Init();
+
+    ssd1306_FlipScreenVertically();
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    ssd1306_DrawRect(0, 0, ssd1306_GetWidth(), ssd1306_GetHeight());
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString("ssd1306_text", Font_7x10);
+    ssd1306_UpdateScreen();
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
     float32_t pFftOutputMag[AUDIO_DATA_LEN];

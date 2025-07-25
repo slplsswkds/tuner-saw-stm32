@@ -1,99 +1,67 @@
 cmake_minimum_required(VERSION 3.22)
 
-#
-# This file is generated only once,
-# and is not re-generated if converter is called multiple times.
-#
-# User is free to modify the file as much as necessary
-#
+project(tuner-code C ASM)
 
-# Setup compiler settings
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Define the build type
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug")
-endif()
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif ()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# Set the project name
-set(CMAKE_PROJECT_NAME tuner-code)
+add_executable(${PROJECT_NAME})
 
-# Include toolchain file
-include("cmake/gcc-arm-none-eabi.cmake")
-
-# Enable compile command to ease indexing with e.g. clangd
-set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
-
-# Core project settings
-project(${CMAKE_PROJECT_NAME})
-message("Build type: " ${CMAKE_BUILD_TYPE})
-
-# Enable CMake support for ASM and C languages
-enable_language(C ASM)
-
-# Create an executable object type
-add_executable(${CMAKE_PROJECT_NAME}
+target_sources(${PROJECT_NAME} PRIVATE
+        Core/Src/main.c
         Core/Src/tuner.c
-        Core/Inc/tuner.h
         Core/Src/uart_log.c
-        Core/Inc/uart_log.h
         Core/Src/adc_data.c
-        Core/Inc/adc_data.h
+        Core/Src/stm32f4xx_it.c
+        Core/Src/stm32f4xx_hal_msp.c
+        Core/Src/syscalls.c
+        Core/Src/sysmem.c
+        Core/Src/system_stm32f4xx.c
 )
 
-# Генерація .bin після збірки ELF
-add_custom_command(TARGET tuner-code POST_BUILD
-        COMMAND ${CMAKE_OBJCOPY} -O binary tuner-code.elf tuner-code.bin
-        COMMENT "Generating tuner-code.bin"
+target_sources(${PROJECT_NAME} PRIVATE
+        Core/ssd1306_stm32_hal/src/ssd1306.c
+        Core/ssd1306_stm32_hal/src/fonts.c
 )
 
-# Генерація .hex після збірки ELF
-add_custom_command(TARGET tuner-code POST_BUILD
-        COMMAND ${CMAKE_OBJCOPY} -O ihex tuner-code.elf tuner-code.hex
-        COMMENT "Generating tuner-code.hex"
+target_sources(${PROJECT_NAME} PRIVATE
+        startup_stm32f411xe.s
 )
 
-# Add STM32CubeMX generated sources
+target_include_directories(${PROJECT_NAME} PRIVATE
+        Core/Inc
+        Core/ssd1306_stm32_hal/inc
+        Core/SSD1306_for_STM32_HAL_IAR/inc
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+        UART_LOG
+)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
+
 add_subdirectory(cmake/stm32cubemx)
+target_link_libraries(${PROJECT_NAME} PRIVATE stm32cubemx)
 
-# Link directories setup
-target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined library search paths
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} -O binary ${PROJECT_NAME}.elf ${PROJECT_NAME}.bin
+        COMMENT "Generating ${PROJECT_NAME}.bin"
 )
 
-# Add sources to executable
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
-)
-
-# Add include paths
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
-)
-
-# Add project symbols (macros)
-target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
-)
-
-# Add linked libraries
-target_link_libraries(${CMAKE_PROJECT_NAME}
-    stm32cubemx
-
-    # Add user defined libraries
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} -O ihex ${PROJECT_NAME}.elf ${PROJECT_NAME}.hex
+        COMMENT "Generating ${PROJECT_NAME}.hex"
 )
 
 add_custom_target(flash
-        COMMAND ./flash.sh
-        DEPENDS firmware
+        COMMAND ${CMAKE_SOURCE_DIR}/flash.sh
+        DEPENDS ${PROJECT_NAME}
 )
-
-set(CMAKE_CXX_COMPILER ${ARM_TOOLCHAIN}/bin/arm-none-eabi-g++)
-
-add_compile_definitions(UART_LOG)
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
