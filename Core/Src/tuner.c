@@ -96,13 +96,36 @@ int main(void)
 
     while (1)
     {
+        uartClearTerminal();
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         waitForAdcData();
+
+        #ifdef UART_LOG
+        uartPrintf("pAudioData[idx]:\n\r");
+
+        const uint16_t blockSize = 32;
+
+        for (uint16_t i = 0; i < AUDIO_DATA_LEN; i += blockSize)
+        {
+            const uint16_t blockEnd = i + blockSize - 1 < AUDIO_DATA_LEN ? i + blockSize - 1 : AUDIO_DATA_LEN - 1;
+            uartPrintf("[%4u...%4u]: ", i, blockEnd);
+
+            for (uint16_t j = i; j <= blockEnd; j++)
+            {
+                uartPrintf("%5u ", pAudioData[j]);
+            }
+
+            uartPrintf("\n\r");
+        }
+        #endif
+
         fft(&fftInstance, pAudioData, pFftOutputMag);
         calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
         showInfo();
-        HAL_Delay(500);
-        // break;
+
+        #ifdef UART_LOG
+        HAL_Delay(5000);
+        #endif
     }
 }
 
@@ -116,31 +139,44 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
     arm_rfft_fast_f32(pFftInstance, pAudioDataNormalized, pFftOutput, 0);
 
     #ifdef UART_LOG
-    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
+    uartPrintf("pFftOutput[idx]:\n\r");
+    const uint16_t blockSize_ = 16;
+    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i += blockSize_)
     {
-        if (i % (AUDIO_DATA_LEN / 8) == 0)
+        const uint16_t blockEnd = i + blockSize_ - 1 < AUDIO_DATA_LEN ? i + blockSize_ - 1 : AUDIO_DATA_LEN - 1;
+        uartPrintf("[%4u..%4u]: ", i, blockEnd);
+
+        for (uint16_t j = i; j + 1 <= blockEnd; j += 2)
         {
-            uartPrintf("pFftOutput[%*u] = % .4f\r\n", 4, i, pFftOutput[i]);
+            const float32_t real = pFftOutput[j];
+            const float32_t imag = pFftOutput[j + 1];
+            uartPrintf("%7.1f, %7.1f | ", real, imag);
         }
+
+        uartPrintf("\n\r");
     }
-    uartPrintf("\r\n");
+    uartPrintf("\n\r");
     #endif
 
     arm_cmplx_mag_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
 
     #ifdef UART_LOG
-    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i++)
+    uartPrintf("pFftOutputMag[idx]:\n\r");
+    const uint16_t blockSize = 8;
+    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i += blockSize)
     {
-        if (i % (AUDIO_DATA_LEN / 8) == 0)
+        const uint16_t blockEnd = i + blockSize - 1 < AUDIO_DATA_LEN ? i + blockSize - 1 : AUDIO_DATA_LEN - 1;
+        uartPrintf("[%4u..%4u]: ", i, blockEnd);
+
+        for (uint16_t j = i; j <= blockEnd; j++)
         {
-            const float32_t frequency = calculateFreqFromFftIndex(AUDIO_DATA_LEN, ADC_SAMPLING_FREQ, i);
-            uartPrintf("pFftOutputMag[%*u; %*.*f Hz] = % .4f\r\n",
-                       4, i,
-                       8 - 2, 1, frequency,
-                       pFftOutputMag[i]);
+            const float32_t freq = calculateFreqFromFftIndex(AUDIO_DATA_LEN, ADC_SAMPLING_FREQ, j);
+            uartPrintf("%6.1fHz: %6.2f | ", freq, pFftOutputMag[j]);
         }
+
+        uartPrintf("\n\r");
     }
-    uartPrintf("\r\n");
+    uartPrintf("\n\r");
     #endif
 }
 

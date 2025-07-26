@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "uart_log.h"
 
-const uint32_t AUDIO_DATA_LEN = 1024;
+const uint16_t AUDIO_DATA_LEN = 512;
 const float32_t ADC_SAMPLING_FREQ = 8130.0f;
 const float32_t ADC_SAMPLING_RATE = 1.0f / 8130.0f;
 volatile bool AUDIO_DATA_IS_ACTUAL = false;
@@ -18,7 +18,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     }
 }
 
-void startAdcDataRecording(uint16_t* pData, const uint32_t length)
+void startAdcDataRecording(uint16_t* pData, const uint16_t length)
 {
     AUDIO_DATA_IS_ACTUAL = false;
     HAL_ADC_Start_DMA(&hadc1, (uint32_t*)pData, length);

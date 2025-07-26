@@ -49,3 +49,8 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
         UART_TX_BUSY = false;
     }
 }
+
+void uartClearTerminal()
+{
+    uartPrintf("\x1B[2J");
+}
