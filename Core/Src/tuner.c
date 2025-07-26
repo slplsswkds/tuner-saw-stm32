@@ -23,6 +23,67 @@ void normalize(const uint16_t* src, float32_t* dst, size_t len);
 float32_t calculateFreqFromFftIndex(uint16_t size, float32_t sampling_freq, uint16_t idx);
 float32_t findDominantFrequency(const float32_t* pFftMag, uint16_t size);
 
+#ifdef UART_LOG
+static void logAudioData(const uint16_t* pAudioData, const uint16_t size)
+{
+    uartPrintf("pAudioData[idx]:\n\r");
+    const uint16_t blockSize = 32;
+    for (uint16_t i = 0; i < size; i += blockSize)
+    {
+        const uint16_t blockEnd = i + blockSize - 1 < size ? i + blockSize - 1 : size - 1;
+        uartPrintf("[%4u..%4u]: ", i, blockEnd);
+
+        for (uint16_t j = i; j <= blockEnd; j++)
+        {
+            uartPrintf("%5u ", pAudioData[j]);
+        }
+
+        uartPrintf("\n\r");
+    }
+}
+
+static void logFftOutput(const float32_t* pFftOutput, const uint16_t size)
+{
+    uartPrintf("pFftOutput[idx]:\n\r");
+    const uint16_t blockSize_ = 16;
+    for (uint16_t i = 0; i < size; i += blockSize_)
+    {
+        const uint16_t blockEnd = i + blockSize_ - 1 < size ? i + blockSize_ - 1 : size - 1;
+        uartPrintf("[%4u..%4u]: ", i, blockEnd);
+
+        for (uint16_t j = i; j + 1 <= blockEnd; j += 2)
+        {
+            const float32_t real = pFftOutput[j];
+            const float32_t imag = pFftOutput[j + 1];
+            uartPrintf("%7.1f, %7.1f | ", real, imag);
+        }
+
+        uartPrintf("\n\r");
+    }
+    uartPrintf("\n\r");
+}
+
+static void logFftOutputMag(const float32_t* pFftOutputMag, const uint16_t size)
+{
+    uartPrintf("pFftOutputMag[idx]:\n\r");
+    const uint16_t blockSize = 8;
+    for (uint16_t i = 0; i < size; i += blockSize)
+    {
+        const uint16_t blockEnd = i + blockSize - 1 < size ? i + blockSize - 1 : size - 1;
+        uartPrintf("[%4u..%4u]: ", i, blockEnd);
+
+        for (uint16_t j = i; j <= blockEnd; j++)
+        {
+            const float32_t freq = calculateFreqFromFftIndex(size, ADC_SAMPLING_FREQ, j);
+            uartPrintf("%6.1fHz: %6.2f | ", freq, pFftOutputMag[j]);
+        }
+
+        uartPrintf("\n\r");
+    }
+    uartPrintf("\n\r");
+}
+#endif // UART_LOG
+
 int main(void)
 {
     HAL_Init();
@@ -34,7 +95,7 @@ int main(void)
 
     #ifdef UART_LOG
     MxUartInit();
-    #endif
+    #endif // UART_LOG
 
     HAL_Delay(100);
 
@@ -44,14 +105,14 @@ int main(void)
         blinkTimesWithDelay(2, 500);
         #ifdef UART_LOG
         uartPrintf("Waked up from standby\n\r");
-        #endif
+        #endif // UART_LOG
     }
     else
     {
         blinkTimesWithDelay(5, 100);
         #ifdef UART_LOG
         uartPrintf("First boot\n\r");
-        #endif
+        #endif // UART_LOG
     }
 
     HAL_StatusTypeDef oledInitStatus;
@@ -80,7 +141,7 @@ int main(void)
             break;
         }
         uartPrintf("OLED init status: %s\n\r", statusStr);
-        #endif
+        #endif // UART_LOG
     }
     while (oledInitStatus != HAL_OK);
 
@@ -101,23 +162,8 @@ int main(void)
         waitForAdcData();
 
         #ifdef UART_LOG
-        uartPrintf("pAudioData[idx]:\n\r");
-
-        const uint16_t blockSize = 32;
-
-        for (uint16_t i = 0; i < AUDIO_DATA_LEN; i += blockSize)
-        {
-            const uint16_t blockEnd = i + blockSize - 1 < AUDIO_DATA_LEN ? i + blockSize - 1 : AUDIO_DATA_LEN - 1;
-            uartPrintf("[%4u...%4u]: ", i, blockEnd);
-
-            for (uint16_t j = i; j <= blockEnd; j++)
-            {
-                uartPrintf("%5u ", pAudioData[j]);
-            }
-
-            uartPrintf("\n\r");
-        }
-        #endif
+        logAudioData(pAudioData, AUDIO_DATA_LEN);
+        #endif // UART_LOG
 
         fft(&fftInstance, pAudioData, pFftOutputMag);
         calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
@@ -125,7 +171,7 @@ int main(void)
 
         #ifdef UART_LOG
         HAL_Delay(5000);
-        #endif
+        #endif // UART_LOG
     }
 }
 
@@ -139,45 +185,14 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
     arm_rfft_fast_f32(pFftInstance, pAudioDataNormalized, pFftOutput, 0);
 
     #ifdef UART_LOG
-    uartPrintf("pFftOutput[idx]:\n\r");
-    const uint16_t blockSize_ = 16;
-    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i += blockSize_)
-    {
-        const uint16_t blockEnd = i + blockSize_ - 1 < AUDIO_DATA_LEN ? i + blockSize_ - 1 : AUDIO_DATA_LEN - 1;
-        uartPrintf("[%4u..%4u]: ", i, blockEnd);
-
-        for (uint16_t j = i; j + 1 <= blockEnd; j += 2)
-        {
-            const float32_t real = pFftOutput[j];
-            const float32_t imag = pFftOutput[j + 1];
-            uartPrintf("%7.1f, %7.1f | ", real, imag);
-        }
-
-        uartPrintf("\n\r");
-    }
-    uartPrintf("\n\r");
-    #endif
+    logFftOutput(pFftOutput, AUDIO_DATA_LEN);
+    #endif // UART_LOG
 
     arm_cmplx_mag_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
 
     #ifdef UART_LOG
-    uartPrintf("pFftOutputMag[idx]:\n\r");
-    const uint16_t blockSize = 8;
-    for (uint16_t i = 0; i < AUDIO_DATA_LEN; i += blockSize)
-    {
-        const uint16_t blockEnd = i + blockSize - 1 < AUDIO_DATA_LEN ? i + blockSize - 1 : AUDIO_DATA_LEN - 1;
-        uartPrintf("[%4u..%4u]: ", i, blockEnd);
-
-        for (uint16_t j = i; j <= blockEnd; j++)
-        {
-            const float32_t freq = calculateFreqFromFftIndex(AUDIO_DATA_LEN, ADC_SAMPLING_FREQ, j);
-            uartPrintf("%6.1fHz: %6.2f | ", freq, pFftOutputMag[j]);
-        }
-
-        uartPrintf("\n\r");
-    }
-    uartPrintf("\n\r");
-    #endif
+    logFftOutputMag(pFftOutputMag, AUDIO_DATA_LEN);
+    #endif // UART_LOG
 }
 
 float32_t calculateFreqFromFftIndex(const uint16_t size, const float32_t sampling_freq, const uint16_t idx)
@@ -191,7 +206,7 @@ float32_t calculateFreqFromFftIndex(const uint16_t size, const float32_t samplin
     {
         #ifdef UART_LOG
         uartPrintf("Error: index is out of range\n\n\r");
-        #endif
+        #endif // UART_LOG
     }
     return frequncy;
 }
@@ -212,7 +227,7 @@ void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
 
     #ifdef UART_LOG
     uartPrintf("Idx: %u \t\tMax Frequency: %f\n\n\r", maxMagIdx, maxMagFreq);
-    #endif
+    #endif // UART_LOG
 }
 
 void showInfo()
@@ -228,7 +243,7 @@ void showInfo()
     counter++;
     #ifdef UART_LOG
     uartPrintf("Tuning info: empty\n\n\r");
-    #endif
+    #endif // UART_LOG
 }
 
 void normalize(const uint16_t* src, float32_t* dst, const size_t len)
@@ -248,9 +263,9 @@ void normalize(const uint16_t* src, float32_t* dst, const size_t len)
         // {
         //     uartPrintf("src[%*u] = %u;\tdst = %.4f\r\n", 4, i, adc_value, dst[i]);
         // }
-        #endif
+        #endif // UART_LOG
     }
     #ifdef UART_LOG
     uartPrintf("\r\n");
-    #endif
+    #endif // UART_LOG
 }
