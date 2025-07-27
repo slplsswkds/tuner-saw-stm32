@@ -84,6 +84,108 @@ static void logFftOutputMag(const float32_t* pFftOutputMag, const uint16_t size)
 }
 #endif // UART_DEBUG_ARRAYS
 
+const char* noteNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+
+const float32_t REFERENCE_FREQUENCY = 440.0f; // Частота A4
+const int REFERENCE_MIDI_NUMBER = 69; // MIDI номер A4
+const int SEMITONES_PER_OCTAVE = 12; // Півтонів в октаві
+const float32_t ROUNDING_OFFSET = 0.5f; // Для округлення
+const int MIDI_OCTAVE_OFFSET = 1; // Для обчислення правильної октави
+const float32_t CENTS_TOLERANCE = 5.0f; // Допустиме відхилення в центах
+
+typedef enum
+{
+    LOW,
+    HIGH,
+    OK,
+    UNKNOWN,
+} StringTension;
+
+void detectNote(const float32_t frequency)
+{
+    char oledBuf[16];
+
+    if (frequency <= 0.0f)
+    {
+        #ifdef UART_LOG
+        uartPrintf("Invalid frequency\n\r");
+        #endif // UART_LOG
+        ssd1306_Clear();
+        return;
+    }
+
+    // Обчислення MIDI-номера найближчої ноти
+    const float32_t noteNumber = REFERENCE_MIDI_NUMBER + SEMITONES_PER_OCTAVE * log2f(frequency / REFERENCE_FREQUENCY);
+    const int roundedNoteNumber = (int)(noteNumber + ROUNDING_OFFSET);
+    const uint8_t noteIndex = roundedNoteNumber % SEMITONES_PER_OCTAVE;
+    const uint8_t octave = roundedNoteNumber / SEMITONES_PER_OCTAVE - MIDI_OCTAVE_OFFSET;
+
+    // Частота для еталонної ноти
+    const float32_t idealFrequency = REFERENCE_FREQUENCY * powf(
+        2.0f, ((float32_t)roundedNoteNumber - REFERENCE_MIDI_NUMBER) / SEMITONES_PER_OCTAVE);
+
+    // Різниця в центах
+    const float32_t centsDiff = 1200.0f * log2f(frequency / idealFrequency);
+
+    StringTension stringTension = UNKNOWN;
+
+    if (fabsf(centsDiff) < CENTS_TOLERANCE)
+    {
+        stringTension = OK;
+    }
+    else if (centsDiff < 0.0f)
+    {
+        stringTension = LOW;
+    }
+    else
+    {
+        stringTension = HIGH;
+    }
+
+    switch (stringTension)
+    {
+    case OK:
+        #ifdef UART_LOG
+        uartPrintf("✔ In tune\n\r");
+        #endif // UART_LOG
+        break;
+    case LOW:
+        #ifdef UART_LOG
+        uartPrintf("↓ Too low — tighten the string\n\r");
+        #endif // UART_LOG
+        break;
+    case HIGH:
+        #ifdef UART_LOG
+        uartPrintf("↑ Too high — loosen the string\n\r");
+        #endif // UART_LOG
+        break;
+    default: ;
+    }
+
+    #ifdef UART_LOG
+    uartPrintf("Note: %s%d (MIDI %d)\n\r", noteNames[noteIndex], octave, roundedNoteNumber);
+    uartPrintf("Detected freq: %.2f Hz\tIdeal freq: %.2f Hz\n\r", frequency, idealFrequency);
+    uartPrintf("Diff: %.2f cents\n\r", centsDiff);
+    uartPrintf("\n\r");
+    #endif // UART_LOG
+
+    ssd1306_SetCursor(19, 0);
+    snprintf(oledBuf, sizeof(oledBuf), "%s%d", noteNames[noteIndex], octave);
+    ssd1306_WriteString(oledBuf, Font_11x18);
+
+    ssd1306_SetCursor(0, 0);
+    snprintf(oledBuf, sizeof(oledBuf), "%s%d", noteNames[noteIndex - 1], octave);
+    ssd1306_WriteString(oledBuf, Font_7x10);
+    ssd1306_SetCursor(58, 0);
+    snprintf(oledBuf, sizeof(oledBuf), "%s%d", noteNames[noteIndex + 1], octave);
+    ssd1306_WriteString(oledBuf, Font_7x10);
+
+    ssd1306_SetCursor(0, 22);
+    snprintf(oledBuf, sizeof(oledBuf), "%.2f", centsDiff);
+    ssd1306_WriteString(oledBuf, Font_11x18);
+}
+
+
 int main(void)
 {
     HAL_Init();
@@ -165,6 +267,7 @@ int main(void)
         uartClearTerminal();
         #endif // UART_DEBUG
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
+        ssd1306_UpdateScreen();
         waitForAdcData();
 
         #ifdef UART_DEBUG_ARRAYS
@@ -173,7 +276,7 @@ int main(void)
 
         fft(&fftInstance, pAudioData, pFftOutputMag);
         calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
-        showInfo();
+        // showInfo();
 
         #ifdef UART_DEBUG
         HAL_Delay(5000);
@@ -232,7 +335,8 @@ void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
     const float32_t maxMagFreq = (float32_t)maxMagIdx * ADC_SAMPLING_FREQ / (float32_t)size;
 
     #ifdef UART_LOG
-    uartPrintf("Idx: %u \t\tMax Frequency: %f\n\n\r", maxMagIdx, maxMagFreq);
+    uartPrintf("Idx: %u \t\tMax Frequency: %f\n\r", maxMagIdx, maxMagFreq);
+    detectNote(maxMagFreq);
     #endif // UART_LOG
 }
 
