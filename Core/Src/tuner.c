@@ -150,19 +150,22 @@ int main(void)
     ssd1306_UpdateScreen();
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
-    float32_t pFftOutputMag[AUDIO_DATA_LEN];
+    float32_t pFftOutputMag[AUDIO_DATA_LEN/2];
 
     arm_rfft_fast_instance_f32 fftInstance;
     arm_rfft_fast_init_f32(&fftInstance, AUDIO_DATA_LEN);
 
     while (1)
     {
-        uartClearTerminal();
+
+        #ifdef UART_LOG
+        // uartClearTerminal();
+        #endif // UART_LOG
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         waitForAdcData();
 
         #ifdef UART_LOG
-        logAudioData(pAudioData, AUDIO_DATA_LEN);
+        // logAudioData(pAudioData, AUDIO_DATA_LEN);
         #endif // UART_LOG
 
         fft(&fftInstance, pAudioData, pFftOutputMag);
@@ -170,7 +173,7 @@ int main(void)
         showInfo();
 
         #ifdef UART_LOG
-        HAL_Delay(5000);
+        // HAL_Delay(5000);
         #endif // UART_LOG
     }
 }
@@ -185,13 +188,13 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
     arm_rfft_fast_f32(pFftInstance, pAudioDataNormalized, pFftOutput, 0);
 
     #ifdef UART_LOG
-    logFftOutput(pFftOutput, AUDIO_DATA_LEN);
+    // logFftOutput(pFftOutput, AUDIO_DATA_LEN);
     #endif // UART_LOG
 
-    arm_cmplx_mag_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
+    arm_cmplx_mag_squared_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN/2);
 
     #ifdef UART_LOG
-    logFftOutputMag(pFftOutputMag, AUDIO_DATA_LEN);
+    // logFftOutputMag(pFftOutputMag, AUDIO_DATA_LEN);
     #endif // UART_LOG
 }
 
