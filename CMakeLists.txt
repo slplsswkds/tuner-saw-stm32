@@ -40,9 +40,24 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         Core/ssd1306_stm32_hal/inc
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-        UART_LOG
-)
+option(UART "Enable UART features" ON)
+option(UART_LOG "Enable UART log output" ON)
+option(UART_DEBUG "Enable UART debug output" OFF)
+option(UART_DEBUG_ARRAYS "Enable UART debug arrays output" OFF)
+
+if (UART)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE UART)
+
+    if (UART_LOG)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE UART_LOG)
+    endif ()
+
+    if (UART_DEBUG)
+        if (UART_DEBUG_ARRAYS)
+            target_compile_definitions(${PROJECT_NAME} PRIVATE UART_DEBUG_ARRAYS)
+        endif ()
+    endif ()
+endif ()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")

@@ -23,7 +23,7 @@ void normalize(const uint16_t* src, float32_t* dst, size_t len);
 float32_t calculateFreqFromFftIndex(uint16_t size, float32_t sampling_freq, uint16_t idx);
 float32_t findDominantFrequency(const float32_t* pFftMag, uint16_t size);
 
-#ifdef UART_LOG
+#ifdef UART_DEBUG_ARRAYS
 static void logAudioData(const uint16_t* pAudioData, const uint16_t size)
 {
     uartPrintf("pAudioData[idx]:\n\r");
@@ -82,7 +82,7 @@ static void logFftOutputMag(const float32_t* pFftOutputMag, const uint16_t size)
     }
     uartPrintf("\n\r");
 }
-#endif // UART_LOG
+#endif // UART_DEBUG_ARRAYS
 
 int main(void)
 {
@@ -93,9 +93,9 @@ int main(void)
     MxAdcInit();
     MxI2cInit();
 
-    #ifdef UART_LOG
+    #ifdef UART
     MxUartInit();
-    #endif // UART_LOG
+    #endif // UART
 
     HAL_Delay(100);
 
@@ -150,31 +150,34 @@ int main(void)
     ssd1306_UpdateScreen();
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
-    float32_t pFftOutputMag[AUDIO_DATA_LEN/2];
+    float32_t pFftOutputMag[AUDIO_DATA_LEN / 2];
 
     arm_rfft_fast_instance_f32 fftInstance;
     arm_rfft_fast_init_f32(&fftInstance, AUDIO_DATA_LEN);
 
+    #ifdef UART
+    uartClearTerminal();
+    #endif // UART
+
     while (1)
     {
-
-        #ifdef UART_LOG
-        // uartClearTerminal();
-        #endif // UART_LOG
+        #ifdef UART_DEBUG
+        uartClearTerminal();
+        #endif // UART_DEBUG
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         waitForAdcData();
 
-        #ifdef UART_LOG
-        // logAudioData(pAudioData, AUDIO_DATA_LEN);
-        #endif // UART_LOG
+        #ifdef UART_DEBUG_ARRAYS
+        logAudioData(pAudioData, AUDIO_DATA_LEN);
+        #endif // UART_DEBUG_ARRAYS
 
         fft(&fftInstance, pAudioData, pFftOutputMag);
         calculateStringTuningInfo(pFftOutputMag, AUDIO_DATA_LEN);
         showInfo();
 
-        #ifdef UART_LOG
-        // HAL_Delay(5000);
-        #endif // UART_LOG
+        #ifdef UART_DEBUG
+        HAL_Delay(5000);
+        #endif // UART_DEBUG
     }
 }
 
@@ -187,31 +190,31 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
     normalize(pAudioData, pAudioDataNormalized, AUDIO_DATA_LEN);
     arm_rfft_fast_f32(pFftInstance, pAudioDataNormalized, pFftOutput, 0);
 
-    #ifdef UART_LOG
-    // logFftOutput(pFftOutput, AUDIO_DATA_LEN);
-    #endif // UART_LOG
+    #ifdef UART_DEBUG_ARRAYS
+    logFftOutput(pFftOutput, AUDIO_DATA_LEN);
+    #endif // UART_DEBUG_ARRAYS
 
-    arm_cmplx_mag_squared_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN/2);
+    arm_cmplx_mag_squared_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
 
-    #ifdef UART_LOG
-    // logFftOutputMag(pFftOutputMag, AUDIO_DATA_LEN);
-    #endif // UART_LOG
+    #ifdef UART_DEBUG_ARRAYS
+    logFftOutputMag(pFftOutputMag, AUDIO_DATA_LEN);
+    #endif // UART_DEBUG_ARRAYS
 }
 
 float32_t calculateFreqFromFftIndex(const uint16_t size, const float32_t sampling_freq, const uint16_t idx)
 {
-    float32_t frequncy = 0.0f;
+    float32_t frequency = 0.0f;
     if (idx < size)
     {
-        frequncy = (float32_t)idx * sampling_freq / (float32_t)size;
+        frequency = (float32_t)idx * sampling_freq / (float32_t)size;
     }
+    #ifdef UART_DEBUG
     else
     {
-        #ifdef UART_LOG
         uartPrintf("Error: index is out of range\n\n\r");
-        #endif // UART_LOG
     }
-    return frequncy;
+    #endif // UART_DEBUG
+    return frequency;
 }
 
 void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
@@ -261,14 +264,14 @@ void normalize(const uint16_t* src, float32_t* dst, const size_t len)
         const uint16_t adc_value = src[i] & ADC_MAX;
         dst[i] = ((float)adc_value - ADC_CENTER) / ADC_SCALE;
 
-        #ifdef UART_LOG
-        // if (i % 256 == 0)
-        // {
-        //     uartPrintf("src[%*u] = %u;\tdst = %.4f\r\n", 4, i, adc_value, dst[i]);
-        // }
-        #endif // UART_LOG
+        #ifdef UART_DEBUG_ARRAYS
+        if (i % 256 == 0)
+        {
+            uartPrintf("src[%*u] = %u;\tdst = %.4f\r\n", 4, i, adc_value, dst[i]);
+        }
+        #endif // UART_DEBUG_ARRAYS
     }
-    #ifdef UART_LOG
+    #ifdef UART_DEBUG_ARRAYS
     uartPrintf("\r\n");
-    #endif // UART_LOG
+    #endif // UART_DEBUG_ARRAYS
 }

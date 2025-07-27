@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "uart_log.h"
 
-const uint16_t AUDIO_DATA_LEN = 1024;
+const uint16_t AUDIO_DATA_LEN = 4096;
 const float32_t ADC_SAMPLING_FREQ = 8130.0f;
 const float32_t ADC_SAMPLING_RATE = 1.0f / 8130.0f;
 volatile bool AUDIO_DATA_IS_ACTUAL = false;
@@ -24,12 +24,14 @@ void startAdcDataRecording(uint16_t* pData, const uint16_t length)
     HAL_ADC_Start_DMA(&hadc1, (uint32_t*)pData, length);
 }
 
+
+#ifdef UART_DEBUG
 void HAL_ADC_ErrorCallback(ADC_HandleTypeDef* hadc)
 {
-    #ifdef UART_LOG
     uartPrintf("ADC Error, code: 0x%X\r\n", hadc->ErrorCode);
-    #endif
+
 }
+#endif // UART_DEBUG
 
 void waitForAdcData()
 {
@@ -40,7 +42,7 @@ void waitForAdcData()
     }
     HAL_ResumeTick();
 
-    #ifdef UART_LOG
+    #ifdef UART_DEBUG
     uartPrintf("Audio data is%s actual\n\n\r", AUDIO_DATA_IS_ACTUAL ? "" : " not");
-    #endif
+    #endif // UART_DEBUG
 }
