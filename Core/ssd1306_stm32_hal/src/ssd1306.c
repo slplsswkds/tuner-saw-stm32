@@ -29,12 +29,12 @@ static void ssd1306_WriteData(uint8_t* data, uint16_t size);
 //
 //  Get a width and height screen size
 //
-static const uint16_t width(void) { return SSD1306_WIDTH; };
-static const uint16_t height(void) { return SSD1306_HEIGHT; };
+static uint16_t width(void) { return SSD1306_WIDTH; }
+static uint16_t height(void) { return SSD1306_HEIGHT; }
 /* CODE END Private functions */
 
 /* CODE BEGIN Public functions */
-uint16_t ssd1306_GetWidth(void)
+inline uint16_t ssd1306_GetWidth(void)
 {
     return SSD1306_WIDTH;
 }
@@ -181,7 +181,7 @@ void ssd1306_UpdateScreen(void)
 //	Y => Y Coordinate
 //	color => Pixel color
 //
-void ssd1306_DrawPixel(uint8_t x, uint8_t y)
+void ssd1306_DrawPixel(const uint8_t x, const uint8_t y)
 {
     SSD1306_COLOR color = SSD1306.Color;
 
@@ -593,19 +593,19 @@ void ssd1306_DrawCircleQuads(int16_t x0, int16_t y0, int16_t radius, uint8_t qua
 
 void ssd1306_DrawProgressBar(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t progress)
 {
-    uint16_t radius = height / 2;
-    uint16_t xRadius = x + radius;
-    uint16_t yRadius = y + radius;
-    uint16_t doubleRadius = 2 * radius;
-    uint16_t innerRadius = radius - 2;
+    const uint16_t radius = height / 2;
+    const uint16_t xRadius = x + radius;
+    const uint16_t yRadius = y + radius;
+    const uint16_t doubleRadius = 2 * radius;
+    const uint16_t innerRadius = radius - 2;
 
     ssd1306_SetColor(White);
-    ssd1306_DrawCircleQuads(xRadius, yRadius, radius, 0b00000110);
+    ssd1306_DrawCircleQuads(xRadius, yRadius, radius, 0x06);
     ssd1306_DrawHorizontalLine(xRadius, y, width - doubleRadius + 1);
     ssd1306_DrawHorizontalLine(xRadius, y + height, width - doubleRadius + 1);
-    ssd1306_DrawCircleQuads(x + width - radius, yRadius, radius, 0b00001001);
+    ssd1306_DrawCircleQuads(x + width - radius, yRadius, radius, 0x09);
 
-    uint16_t maxProgressWidth = (width - doubleRadius + 1) * progress / 100;
+    const uint16_t maxProgressWidth = (width - doubleRadius + 1) * progress / 100;
 
     ssd1306_FillCircle(xRadius, yRadius, innerRadius);
     ssd1306_FillRect(xRadius + 1, y + 2, maxProgressWidth, height - 3);
@@ -661,10 +661,8 @@ void ssd1306_DrawBitmap(uint8_t X, uint8_t Y, uint8_t W, uint8_t H, const uint8_
     }
 }
 
-char ssd1306_WriteChar(char ch, FontDef Font)
+char ssd1306_WriteChar(const char ch, const FontDef Font)
 {
-    uint32_t i, b, j;
-
     // Check remaining space on current line
     if (width() < (SSD1306.CurrentX + Font.FontWidth) ||
         height() < (SSD1306.CurrentY + Font.FontHeight))
@@ -674,12 +672,12 @@ char ssd1306_WriteChar(char ch, FontDef Font)
     }
 
     // Use the font to write
-    for (i = 0; i < Font.FontHeight; i++)
+    for (uint32_t i = 0; i < Font.FontHeight; i++)
     {
-        b = Font.data[(ch - 32) * Font.FontHeight + i];
-        for (j = 0; j < Font.FontWidth; j++)
+        const uint32_t b = Font.data[(ch - 32) * Font.FontHeight + i];
+        for (uint32_t j = 0; j < Font.FontWidth; j++)
         {
-            if ((b << j) & 0x8000)
+            if (b << j & 0x8000)
             {
                 ssd1306_DrawPixel(SSD1306.CurrentX + j, SSD1306.CurrentY + i);
             }

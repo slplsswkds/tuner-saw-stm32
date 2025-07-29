@@ -120,27 +120,42 @@ typedef enum
     UNKNOWN,
 } StringTension;
 
+inline float32_t calculateNoteNumber(const float32_t frequency)
+{
+    return (float32_t)REFERENCE_MIDI_NUMBER + (float32_t)SEMITONES_PER_OCTAVE * log2f(frequency / REFERENCE_FREQUENCY);
+}
+
+inline uint8_t calculateRoundedNoteNumber(const float32_t noteNumber)
+{
+    return (uint8_t)(noteNumber + ROUNDING_OFFSET);
+}
+
+inline uint8_t calculateNoteIndex(const uint8_t roundedNoteNumber)
+{
+    return roundedNoteNumber % SEMITONES_PER_OCTAVE;
+}
+
+inline uint8_t calculateNoteOctave(const uint8_t roundedNoteNumber)
+{
+    return roundedNoteNumber / SEMITONES_PER_OCTAVE - MIDI_OCTAVE_OFFSET;
+}
+
 void detectNote(const float32_t frequency)
 {
-    char oledBuf[16];
-
     if (frequency <= 0.0f)
     {
         #ifdef UART_LOG
         uartPrintf("Invalid frequency\n\r");
         #endif // UART_LOG
-        ssd1306_Clear();
-        snprintf(oledBuf, sizeof(oledBuf), "Invalid");
-        ssd1306_WriteString(oledBuf, Font_7x10);
+        oledPrintf(0, 0, Font_7x10, "Invalid");
         return;
     }
 
     // Обчислення MIDI-номера найближчої ноти
-    const float32_t noteNumber = (float32_t)REFERENCE_MIDI_NUMBER + (float32_t)SEMITONES_PER_OCTAVE * log2f(
-        frequency / REFERENCE_FREQUENCY);
-    const uint8_t roundedNoteNumber = (uint8_t)(noteNumber + ROUNDING_OFFSET);
-    const uint8_t noteIndex = roundedNoteNumber % SEMITONES_PER_OCTAVE;
-    const uint8_t octave = roundedNoteNumber / SEMITONES_PER_OCTAVE - MIDI_OCTAVE_OFFSET;
+    const float32_t noteNumber = calculateNoteNumber(frequency);
+    const uint8_t roundedNoteNumber = calculateRoundedNoteNumber(noteNumber);
+    const uint8_t noteIndex = calculateNoteIndex(roundedNoteNumber);
+    const uint8_t octave = calculateNoteOctave(roundedNoteNumber);
 
     // Частота для еталонної ноти
     const float32_t idealFrequency = REFERENCE_FREQUENCY * powf(
@@ -279,6 +294,8 @@ int main(void)
         #endif // UART_DEBUG
         startAdcDataRecording(pAudioData, AUDIO_DATA_LEN);
         ssd1306_UpdateScreen();
+        waitForOledReadiness();
+        ssd1306_Clear();
         waitForAdcData();
 
         #ifdef UART_DEBUG_ARRAYS
