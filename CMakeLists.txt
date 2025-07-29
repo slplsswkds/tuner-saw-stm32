@@ -19,6 +19,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         Core/Src/tuner.c
         Core/Src/uart_log.c
         Core/Src/adc_data.c
+        Core/Src/string_tuning.c
         Core/Src/stm32f4xx_it.c
         Core/Src/stm32f4xx_hal_msp.c
         Core/Src/syscalls.c
@@ -40,8 +41,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         Core/ssd1306_stm32_hal/inc
 )
 
-option(UART "Enable UART features" ON)
-option(UART_LOG "Enable UART log output" ON)
+option(UART "Enable UART features" OFF)
+option(UART_LOG "Enable UART log output" OFF)
 option(UART_DEBUG "Enable UART debug output" OFF)
 option(UART_DEBUG_ARRAYS "Enable UART debug arrays output" OFF)
 

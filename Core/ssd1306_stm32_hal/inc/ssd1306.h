@@ -143,6 +143,9 @@ void ssd1306_MirrorScreen(void);
 void ssd1306_Clear(void);
 void waitForOledReadiness(void);
 
+void oledPrintNoUpdate(char* str, const uint8_t x, const uint8_t y, const FontDef font);
+void oledPrintf(const uint8_t x, const uint8_t y, const FontDef font, const char* fmt, ...);
+
 // void waitForI2cReadiness(void);
 /* CODE END PFP */
 #endif /* SSD1306_H_ */

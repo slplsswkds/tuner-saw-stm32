@@ -9,6 +9,8 @@
 
 /* CODE BEGIN Includes */
 #include "ssd1306.h"
+#include <stdarg.h>
+#include <stdio.h>
 /* CODE END Includes */
 
 /* CODE BEGIN Private defines */
@@ -822,4 +824,22 @@ void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 	}
 }
 #endif
+
+void oledPrintNoUpdate(char* str, const uint8_t x, const uint8_t y, const FontDef font)
+{
+    ssd1306_SetCursor(x, y);
+    ssd1306_WriteString(str, font);
+}
+
+void oledPrintf(const uint8_t x, const uint8_t y, const FontDef font, const char* fmt, ...)
+{
+    char oledBuf[16];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(oledBuf, sizeof(oledBuf), fmt, args);
+    va_end(args);
+
+    oledPrintNoUpdate(oledBuf, x, y, font);
+}
 /* CODE END Public functions */
