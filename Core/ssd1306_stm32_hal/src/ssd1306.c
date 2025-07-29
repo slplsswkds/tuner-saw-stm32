@@ -773,6 +773,7 @@ void ssd1306_Clear()
     memset(SSD1306_Buffer, 0, SSD1306_BUFFER_SIZE);
 }
 
+#ifdef USE_DMA
 static void waitForI2cReadiness(void)
 {
     HAL_SuspendTick();
@@ -781,6 +782,12 @@ static void waitForI2cReadiness(void)
         HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     }
     HAL_ResumeTick();
+}
+#endif // USE_DMA
+
+void waitForOledReadiness(void)
+{
+    waitForI2cReadiness();
 }
 
 //

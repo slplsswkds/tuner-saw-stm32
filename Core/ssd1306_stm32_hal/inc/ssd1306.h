@@ -141,6 +141,7 @@ void ssd1306_ResetOrientation(void);
 void ssd1306_FlipScreenVertically(void);
 void ssd1306_MirrorScreen(void);
 void ssd1306_Clear(void);
+void waitForOledReadiness(void);
 
 // void waitForI2cReadiness(void);
 /* CODE END PFP */

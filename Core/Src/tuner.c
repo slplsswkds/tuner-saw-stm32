@@ -1,6 +1,7 @@
 #include "tuner.h"
 
 #include "ssd1306.h"
+#include <stdarg.h>
 
 void blinkTimesWithDelay(const int times, const int delay)
 {
@@ -84,13 +85,31 @@ static void logFftOutputMag(const float32_t* pFftOutputMag, const uint16_t size)
 }
 #endif // UART_DEBUG_ARRAYS
 
+void oledPrintNoUpdate(char* str, const uint8_t x, const uint8_t y, const FontDef font)
+{
+    ssd1306_SetCursor(x, y);
+    ssd1306_WriteString(str, font);
+}
+
+void oledPrintf(const uint8_t x, const uint8_t y, const FontDef font, const char* fmt, ...)
+{
+    static char oledBuf[16];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(oledBuf, sizeof(oledBuf), fmt, args);
+    va_end(args);
+
+    oledPrintNoUpdate(oledBuf, x, y, font);
+}
+
 const char* noteNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 const float32_t REFERENCE_FREQUENCY = 440.0f; // Частота A4
-const int REFERENCE_MIDI_NUMBER = 69; // MIDI номер A4
-const int SEMITONES_PER_OCTAVE = 12; // Півтонів в октаві
+const uint8_t REFERENCE_MIDI_NUMBER = 69; // MIDI номер A4
+const uint8_t SEMITONES_PER_OCTAVE = 12; // Півтонів в октаві
 const float32_t ROUNDING_OFFSET = 0.5f; // Для округлення
-const int MIDI_OCTAVE_OFFSET = 1; // Для обчислення правильної октави
+const uint8_t MIDI_OCTAVE_OFFSET = 1; // Для обчислення правильної октави
 const float32_t CENTS_TOLERANCE = 5.0f; // Допустиме відхилення в центах
 
 typedef enum
@@ -111,18 +130,21 @@ void detectNote(const float32_t frequency)
         uartPrintf("Invalid frequency\n\r");
         #endif // UART_LOG
         ssd1306_Clear();
+        snprintf(oledBuf, sizeof(oledBuf), "Invalid");
+        ssd1306_WriteString(oledBuf, Font_7x10);
         return;
     }
 
     // Обчислення MIDI-номера найближчої ноти
-    const float32_t noteNumber = REFERENCE_MIDI_NUMBER + SEMITONES_PER_OCTAVE * log2f(frequency / REFERENCE_FREQUENCY);
-    const int roundedNoteNumber = (int)(noteNumber + ROUNDING_OFFSET);
+    const float32_t noteNumber = (float32_t)REFERENCE_MIDI_NUMBER + (float32_t)SEMITONES_PER_OCTAVE * log2f(
+        frequency / REFERENCE_FREQUENCY);
+    const uint8_t roundedNoteNumber = (uint8_t)(noteNumber + ROUNDING_OFFSET);
     const uint8_t noteIndex = roundedNoteNumber % SEMITONES_PER_OCTAVE;
     const uint8_t octave = roundedNoteNumber / SEMITONES_PER_OCTAVE - MIDI_OCTAVE_OFFSET;
 
     // Частота для еталонної ноти
     const float32_t idealFrequency = REFERENCE_FREQUENCY * powf(
-        2.0f, ((float32_t)roundedNoteNumber - REFERENCE_MIDI_NUMBER) / SEMITONES_PER_OCTAVE);
+        2.0f, ((float32_t)roundedNoteNumber - (float32_t)REFERENCE_MIDI_NUMBER) / (float32_t)SEMITONES_PER_OCTAVE);
 
     // Різниця в центах
     const float32_t centsDiff = 1200.0f * log2f(frequency / idealFrequency);
@@ -169,22 +191,11 @@ void detectNote(const float32_t frequency)
     uartPrintf("\n\r");
     #endif // UART_LOG
 
-    ssd1306_SetCursor(19, 0);
-    snprintf(oledBuf, sizeof(oledBuf), "%s%d", noteNames[noteIndex], octave);
-    ssd1306_WriteString(oledBuf, Font_11x18);
-
-    ssd1306_SetCursor(0, 0);
-    snprintf(oledBuf, sizeof(oledBuf), "%s%d", noteNames[noteIndex - 1], octave);
-    ssd1306_WriteString(oledBuf, Font_7x10);
-    ssd1306_SetCursor(58, 0);
-    snprintf(oledBuf, sizeof(oledBuf), "%s%d", noteNames[noteIndex + 1], octave);
-    ssd1306_WriteString(oledBuf, Font_7x10);
-
-    ssd1306_SetCursor(0, 22);
-    snprintf(oledBuf, sizeof(oledBuf), "%.2f", centsDiff);
-    ssd1306_WriteString(oledBuf, Font_11x18);
+    oledPrintf(19, 0, Font_11x18, "%s%d", noteNames[noteIndex], octave);
+    oledPrintf(0, 0, Font_7x10, "%s%d", noteNames[noteIndex - 1], octave);
+    oledPrintf(58, 0, Font_7x10, "%s%d", noteNames[noteIndex + 1], octave);
+    oledPrintf(0, 22, Font_11x18, "%.2f", centsDiff);
 }
-
 
 int main(void)
 {
@@ -342,15 +353,6 @@ void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
 
 void showInfo()
 {
-    static uint32_t counter = 0;
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%lu", counter);
-
-    ssd1306_Clear();
-    ssd1306_SetCursor(0, 0);
-    ssd1306_WriteString(buf, Font_16x26);
-    ssd1306_UpdateScreen();
-    counter++;
     #ifdef UART_LOG
     uartPrintf("Tuning info: empty\n\n\r");
     #endif // UART_LOG
