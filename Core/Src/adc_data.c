@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "uart_log.h"
 
-const uint16_t AUDIO_DATA_LEN = 4096;
+const uint16_t AUDIO_DATA_LEN = 2048;
 const float32_t ADC_SAMPLING_FREQ = 8130.0f;
 const float32_t ADC_SAMPLING_RATE = 1.0f / 8130.0f;
 volatile bool AUDIO_DATA_IS_ACTUAL = false;

@@ -220,10 +220,11 @@ void SysTick_Handler(void)
 void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
-    if (standbyBtnIsPressed())
-    {
-        goStandby();
-    }
+  if (standbyBtnIsPressed())
+  {
+    HAL_GPIO_WritePin(MOSFET_GATE_GPIO_Port, MOSFET_GATE_Pin, GPIO_PIN_RESET);
+    goStandby();
+  }
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(STANDBY_BTN_Pin);
   /* USER CODE BEGIN EXTI0_IRQn 1 */

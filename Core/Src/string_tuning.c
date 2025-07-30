@@ -1,6 +1,7 @@
 #include "string_tuning.h"
 #include "adc_data.h"
 #include "ssd1306.h"
+#include "uart_log.h"
 
 /*
  * Standard guitar tuning (EADGBE):
@@ -60,11 +61,27 @@ void detectNote(const float32_t frequency)
         #ifdef UART_LOG
         uartPrintf("Invalid frequency\n\r");
         #endif // UART_LOG
-        oledPrintf(0, 0, Font_7x10, "Invalid");
+        oledPrintf(0, 0, Font_11x18, "NoData");
+        ssd1306_DrawHorizontalLine(0, 20, (int16_t)ssd1306_GetWidth());
+        oledPrintf(0, 22, Font_11x18, "<= 0Hz");
         return;
     }
 
     const float32_t noteNumber = calculateNoteNumber(frequency); // Calculating the MIDI number of the nearest note
+
+    if (noteNumber < 21) // A0
+    {
+        oledPrintf(0, 0, Font_11x18, "f < A0");
+        oledPrintf(0, 30, Font_7x10, "%7.3f Hz", frequency);
+        return;
+    }
+    if (noteNumber > 108) // C8
+    {
+        oledPrintf(0, 0, Font_11x18, "f > C8");
+        oledPrintf(0, 30, Font_7x10, "%7.3f Hz", frequency);
+        return;
+    }
+
     const uint8_t roundedNoteNumber = calculateRoundedNoteNumber(noteNumber);
     const uint8_t noteIndex = calculateNoteIndex(roundedNoteNumber);
     const uint8_t octave = calculateNoteOctave(roundedNoteNumber);
