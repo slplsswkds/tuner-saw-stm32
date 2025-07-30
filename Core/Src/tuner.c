@@ -23,11 +23,8 @@ bool isWakedUpFromStandby()
 }
 
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag);
-void calculateStringTuningInfo(const float32_t* pFftMag, uint16_t size);
 void showInfo();
 void normalize(const uint16_t* src, float32_t* dst, size_t len);
-float32_t calculateFreqFromFftIndex(uint16_t size, float32_t sampling_freq, uint16_t idx);
-float32_t findDominantFrequency(const float32_t* pFftMag, uint16_t size);
 
 #ifdef UART_DEBUG_ARRAYS
 static void logAudioData(const uint16_t* pAudioData, const uint16_t size)
@@ -103,8 +100,6 @@ int main(void)
     MxUartInit();
     #endif // UART
 
-    HAL_Delay(100);
-
     if (isWakedUpFromStandby())
     {
         __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
@@ -157,7 +152,7 @@ int main(void)
     ssd1306_UpdateScreen();
 
     uint16_t pAudioData[AUDIO_DATA_LEN];
-    float32_t pFftOutputMag[AUDIO_DATA_LEN / 2];
+    float32_t pFftOutputMag[AUDIO_DATA_LEN];
 
     arm_rfft_fast_instance_f32 fftInstance;
     arm_rfft_fast_init_f32(&fftInstance, AUDIO_DATA_LEN);
@@ -198,46 +193,10 @@ void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioD
     #ifdef UART_DEBUG_ARRAYS
     logFftOutput(pFftOutput, AUDIO_DATA_LEN);
     #endif // UART_DEBUG_ARRAYS
-    arm_cmplx_mag_squared_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN / 2);
+    arm_cmplx_mag_squared_f32(pFftOutput, pFftOutputMag, AUDIO_DATA_LEN);
     #ifdef UART_DEBUG_ARRAYS
     logFftOutputMag(pFftOutputMag, AUDIO_DATA_LEN);
     #endif // UART_DEBUG_ARRAYS
-}
-
-float32_t calculateFreqFromFftIndex(const uint16_t size, const float32_t sampling_freq, const uint16_t idx)
-{
-    float32_t frequency = 0.0f;
-    if (idx < size)
-    {
-        frequency = (float32_t)idx * sampling_freq / (float32_t)size;
-    }
-    #ifdef UART_DEBUG
-    else
-    {
-        uartPrintf("Error: index is out of range\n\n\r");
-    }
-    #endif // UART_DEBUG
-    return frequency;
-}
-
-void calculateStringTuningInfo(const float32_t* pFftMag, const uint16_t size)
-{
-    float32_t maxMag = 0.0f;
-    uint16_t maxMagIdx = 0;
-    for (uint16_t i = 0; i < size; i++)
-    {
-        if (pFftMag[i] > maxMag)
-        {
-            maxMag = pFftMag[i];
-            maxMagIdx = i;
-        }
-    }
-    const float32_t maxMagFreq = (float32_t)maxMagIdx * ADC_SAMPLING_FREQ / (float32_t)size;
-
-    #ifdef UART_LOG
-    uartPrintf("Idx: %u \t\tMax Frequency: %f\n\r", maxMagIdx, maxMagFreq);
-    #endif // UART_LOG
-    detectNote(maxMagFreq);
 }
 
 void showInfo()
@@ -251,7 +210,7 @@ void normalize(const uint16_t* src, float32_t* dst, const size_t len)
 {
     const uint16_t ADC_BITS = 12;
     const uint16_t ADC_MAX = (1 << ADC_BITS) - 1; // 4095
-    const float32_t ADC_CENTER = ADC_MAX / 2.0f; // 2047.5
+    const float32_t ADC_CENTER = (float32_t)ADC_MAX / 2.0f; // 2047.5
     const float32_t ADC_SCALE = ADC_CENTER; // 2047.5
 
     for (size_t i = 0; i < len; i++)
