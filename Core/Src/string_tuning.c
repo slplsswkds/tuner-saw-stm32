@@ -14,7 +14,7 @@
  * E: E4 = 329.63 Hz.
  */
 
-const char* noteNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+const char* semitoneNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 const float32_t REFERENCE_FREQUENCY = 440.0f; // Frequency of the A4 note
 const uint8_t REFERENCE_MIDI_NUMBER = 69; // MIDI number corresponding to A4
@@ -82,12 +82,13 @@ void detectNote(const float32_t frequency)
         return;
     }
 
-    const uint8_t roundedNoteNumber = calculateRoundedNoteNumber(noteNumber);
-    const uint8_t noteIndex = calculateNoteIndex(roundedNoteNumber);
-    const uint8_t octave = calculateNoteOctave(roundedNoteNumber);
-    const float32_t idealFrequency = calculateIdealFrequency(roundedNoteNumber); // Frequency for reference note
+    const uint8_t roundedSemitoneNumber = calculateRoundedNoteNumber(noteNumber);
+    const uint8_t nearestSemitoneIndex = calculateNoteIndex(roundedSemitoneNumber);
+    const uint8_t octave = calculateNoteOctave(roundedSemitoneNumber);
+    const float32_t idealFrequency = calculateIdealFrequency(roundedSemitoneNumber); // Frequency for reference note
     const float32_t centsDiff = calculateCentsDiff(frequency, idealFrequency); // Calculating the difference in cents
 
+    #ifdef UART_LOG
     StringTension stringTension = UNKNOWN;
 
     if (fabsf(centsDiff) < CENTS_TOLERANCE)
@@ -106,42 +107,35 @@ void detectNote(const float32_t frequency)
     switch (stringTension)
     {
     case OK:
-        #ifdef UART_LOG
         uartPrintf("✔ In tune\n\r");
-        #endif // UART_LOG
         break;
     case LOW:
-        #ifdef UART_LOG
         uartPrintf("↓ Too low — tighten the string\n\r");
-        #endif // UART_LOG
         break;
     case HIGH:
-        #ifdef UART_LOG
         uartPrintf("↑ Too high — loosen the string\n\r");
-        #endif // UART_LOG
         break;
     default: ;
     }
 
-    #ifdef UART_LOG
     uartPrintf("Note: %s%d (MIDI %d)\n\r", noteNames[noteIndex], octave, roundedNoteNumber);
     uartPrintf("Detected freq: %.2f Hz\tIdeal freq: %.2f Hz\n\r", frequency, idealFrequency);
     uartPrintf("Diff: %.2f cents\n\r", centsDiff);
     uartPrintf("\n\r");
     #endif // UART_LOG
 
-    const uint8_t nextNoteIndex = noteIndex == 12 ? 0 : noteIndex + 1;
-    const uint8_t prevNoteIndex = noteIndex == 0 ? 11 : noteIndex - 1;
+    const uint8_t nextSemitoneIndex = (nearestSemitoneIndex + 1) % SEMITONES_PER_OCTAVE;
+    const uint8_t prevSemitoneIndex = (nearestSemitoneIndex + SEMITONES_PER_OCTAVE - 1) % SEMITONES_PER_OCTAVE;
 
-    const uint8_t strLenPrevNote = strlen(noteNames[prevNoteIndex]) + 1;
-    const uint8_t currentNoteCoordinateX = strLenPrevNote * Font_7x10.FontWidth + 3;
+    const uint8_t strLenPrevSemitone = strlen(semitoneNames[prevSemitoneIndex]) + 1;
+    const uint8_t currentSemitoneCoordinateX = strLenPrevSemitone * Font_7x10.FontWidth + 3;
 
-    const uint8_t strLenNextNote = strlen(noteNames[nextNoteIndex]) + 1;
-    const uint8_t nextNoteCoordinateX = SSD1306_WIDTH - strLenNextNote * Font_7x10.FontWidth - Font_7x10.FontWidth;
+    const uint8_t strLenNextSemitone = strlen(semitoneNames[nextSemitoneIndex]) + 1;
+    const uint8_t nextSemitoneCoordinateX = SSD1306_WIDTH - strLenNextSemitone * Font_7x10.FontWidth - Font_7x10.FontWidth;
 
-    oledPrintf(currentNoteCoordinateX, 0, Font_11x18, "%s%d", noteNames[noteIndex], octave);
-    oledPrintf(0, 0, Font_7x10, "%s%d", noteNames[prevNoteIndex], octave);
-    oledPrintf(nextNoteCoordinateX, 0, Font_7x10, "%s%d", noteNames[nextNoteIndex], octave);
+    oledPrintf(currentSemitoneCoordinateX, 0, Font_11x18, "%s%d", semitoneNames[nearestSemitoneIndex], octave);
+    oledPrintf(0, 0, Font_7x10, "%s%d", semitoneNames[prevSemitoneIndex], octave);
+    oledPrintf(nextSemitoneCoordinateX, 0, Font_7x10, "%s%d", semitoneNames[nextSemitoneIndex], octave);
     oledPrintf(0, 22, Font_11x18, "%.2f", centsDiff);
 }
 
