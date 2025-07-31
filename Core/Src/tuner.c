@@ -205,7 +205,7 @@ int main(void)
 
 void fft(const arm_rfft_fast_instance_f32* pFftInstance, const uint16_t* pAudioData, float32_t* pFftOutputMag)
 {
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, !HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin));
+    // HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, !HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin));
     AUDIO_DATA_IS_ACTUAL = false;
     float32_t pAudioDataNormalized[AUDIO_DATA_LEN];
     float32_t pFftOutput[AUDIO_DATA_LEN];
